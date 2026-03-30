@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lost & Found Portal</title>
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <!-- HEADER -->
+    <header>
+        <h1>✨ Lost & Found Portal</h1>
+        <nav>
+            <a href="#lost">Lost</a>
+            <a href="#found">Found</a>
+        </nav>
+    </header>
+
+    <!-- MESSAGE -->
+    <div id="message"></div>
+
+    <!-- LOST FORM -->
+    <section id="lost" class="card">
+        <h2>Report Lost Item</h2>
+        <form id="lostForm">
+            <label>Item Name</label>
+            <input type="text" id="lostItem" placeholder="e.g. Wallet" required>
+
+            <label>Description</label>
+            <textarea id="lostDesc" placeholder="Optional details..."></textarea>
+
+            <button type="submit">Submit</button>
+        </form>
+    </section>
+
+    <!-- FOUND FORM -->
+    <section id="found" class="card">
+        <h2>Report Found Item</h2>
+        <form id="foundForm">
+            <label>Item Name</label>
+            <input type="text" id="foundItem" placeholder="e.g. Phone" required>
+
+            <label>Verification Questions</label>
+            <input type="text" class="q" placeholder="Question 1" required>
+            <input type="text" class="q" placeholder="Question 2" required>
+            <input type="text" class="q" placeholder="Question 3" required>
+            <input type="text" class="q" placeholder="Question 4" required>
+            <input type="text" class="q" placeholder="Question 5" required>
+
+            <button type="submit">Submit</button>
+        </form>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+        <p>© 2026 Lost & Found Portal</p>
+    </footer>
+
+    <!-- JS -->
+    <script src="script.js"></script>
+
+</body>
+</html>
