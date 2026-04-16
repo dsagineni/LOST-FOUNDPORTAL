@@ -2,7 +2,7 @@ services:
   - type: web
     name: lost-found-portal
     runtime: python
-    plan: starter
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: python backend/app.py
     envVars:
@@ -11,8 +11,4 @@ services:
       - key: FLASK_DEBUG
         value: "0"
       - key: PORTAL_DATABASE_PATH
-        value: /var/data/portal.db
-    disk:
-      name: portal-data
-      mountPath: /var/data
-      sizeGB: 1
+        value: /tmp/portal.db
