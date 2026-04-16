@@ -1,2 +1,2 @@
-backend/portal.db
+backend/*.db
 backend/__pycache__/

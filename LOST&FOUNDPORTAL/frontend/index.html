@@ -129,15 +129,40 @@
                     <div id="finderAccessResult" class="result-banner hidden"></div>
                 </article>
 
-                <article class="glass panel">
-                    <div class="panel-head">
-                        <div>
-                            <p class="eyebrow">Public Feed</p>
-                            <h3>Found Items</h3>
+                <div class="grid public-found-column">
+                    <article class="glass panel">
+                        <div class="panel-head">
+                            <div>
+                                <p class="eyebrow">Public Feed</p>
+                                <h3>Found Items</h3>
+                            </div>
                         </div>
-                    </div>
-                    <div id="foundItemsList" class="card-list"></div>
-                </article>
+                        <div id="foundItemsList" class="card-list"></div>
+                    </article>
+
+                    <article class="glass panel">
+                        <div class="panel-head">
+                            <div>
+                                <p class="eyebrow">Claimant Access</p>
+                                <h3>Check Claim Status</h3>
+                            </div>
+                        </div>
+                        <form id="claimStatusForm" class="form-grid">
+                            <label>
+                                Claim ID
+                                <input type="number" name="claim_id" min="1" required>
+                            </label>
+                            <label>
+                                Claimant Contact
+                                <input type="text" name="claimant_contact" placeholder="Same email or phone used in claim" required>
+                            </label>
+                            <button type="submit" class="secondary-button">Check Status</button>
+                        </form>
+                        <div id="claimStatusResult" class="empty-state compact">
+                            Enter your claim ID and the same contact you used while submitting the claim.
+                        </div>
+                    </article>
+                </div>
             </div>
         </section>
 

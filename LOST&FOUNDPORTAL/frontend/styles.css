@@ -330,6 +330,10 @@ main {
     gap: 20px;
 }
 
+.public-found-column {
+    align-content: start;
+}
+
 .two-column {
     grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.1fr);
 }
@@ -347,7 +351,8 @@ main {
 .question-list,
 .card-list,
 .vault-content,
-.claim-answers {
+.claim-answers,
+.claim-review-actions {
     display: grid;
     gap: 14px;
 }
@@ -455,6 +460,10 @@ textarea::placeholder {
     gap: 12px;
 }
 
+.claim-review-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .result-banner,
 .empty-state {
     margin-top: 18px;
@@ -473,6 +482,26 @@ textarea::placeholder {
 
 .compact {
     margin-top: 0;
+}
+
+.success-banner {
+    border-color: rgba(124, 226, 208, 0.36);
+    background: rgba(124, 226, 208, 0.18);
+}
+
+.claim-status-copy {
+    margin-top: 10px;
+    line-height: 1.5;
+}
+
+.approval-card {
+    display: grid;
+    gap: 6px;
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 18px;
+    background: rgba(7, 17, 31, 0.24);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .vault-row {

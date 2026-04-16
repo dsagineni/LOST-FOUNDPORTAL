@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import sqlite3
+import time
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
-DATABASE_PATH = Path(__file__).resolve().parent / "portal.db"
+DATABASE_PATH = Path(os.getenv("PORTAL_DATABASE_PATH", Path(__file__).resolve().parent / "portal.db"))
 
 app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path="")
 
@@ -22,8 +24,11 @@ def utc_now() -> str:
 
 
 def get_connection() -> sqlite3.Connection:
-    connection = sqlite3.connect(DATABASE_PATH)
+    DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(DATABASE_PATH, timeout=5)
     connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
+    connection.execute("PRAGMA busy_timeout = 5000")
     return connection
 
 
@@ -107,6 +112,39 @@ def add_notification(connection: sqlite3.Connection, title: str, message: str, i
         """,
         (title, message, item_type, utc_now()),
     )
+
+
+def get_dashboard_payload() -> dict:
+    with closing(get_connection()) as connection:
+        lost_items = [
+            serialize_lost_item(row)
+            for row in connection.execute(
+                "SELECT * FROM lost_items ORDER BY created_at DESC"
+            ).fetchall()
+        ]
+        found_items = [
+            serialize_found_item_public(connection, row)
+            for row in connection.execute(
+                "SELECT * FROM found_items ORDER BY created_at DESC"
+            ).fetchall()
+        ]
+        notifications = [
+            dict(row)
+            for row in connection.execute(
+                "SELECT * FROM notifications ORDER BY created_at DESC LIMIT 20"
+            ).fetchall()
+        ]
+
+    return {
+        "lost_items": lost_items,
+        "found_items": found_items,
+        "notifications": notifications,
+        "counts": {
+            "lost": len(lost_items),
+            "found": len(found_items),
+            "notifications": len(notifications),
+        },
+    }
 
 
 def serialize_lost_item(row: sqlite3.Row) -> dict:
@@ -198,6 +236,7 @@ def serialize_found_item_private(connection: sqlite3.Connection, row: sqlite3.Ro
         claims.append(
             {
                 "id": claim["id"],
+                "found_item_id": row["id"],
                 "claimant_name": claim["claimant_name"],
                 "claimant_contact": claim["claimant_contact"],
                 "claimant_message": claim["claimant_message"],
@@ -222,6 +261,38 @@ def parse_json() -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def serialize_claim_status(connection: sqlite3.Connection, claim_row: sqlite3.Row) -> dict:
+    found_item = connection.execute(
+        """
+        SELECT id, item_name, finder_name, finder_contact, status
+        FROM found_items
+        WHERE id = ?
+        """,
+        (claim_row["found_item_id"],),
+    ).fetchone()
+
+    is_approved = claim_row["status"] == "Accepted"
+    positive_message = None
+    if is_approved:
+        positive_message = "You're the real owner! The finder's contact will be displayed shortly."
+
+    return {
+        "claim_id": claim_row["id"],
+        "found_item_id": claim_row["found_item_id"],
+        "item_name": found_item["item_name"] if found_item else "",
+        "claimant_name": claim_row["claimant_name"],
+        "status": claim_row["status"],
+        "finder_name": found_item["finder_name"] if found_item and is_approved else None,
+        "finder_contact": found_item["finder_contact"] if found_item and is_approved else None,
+        "found_item_status": found_item["status"] if found_item else None,
+        "message": positive_message
+        or {
+            "Pending Review": "Your claim is under review by the finder.",
+            "Rejected": "This claim was not approved by the finder.",
+        }.get(claim_row["status"], "Claim status updated."),
+    }
+
+
 @app.route("/")
 def serve_index():
     return send_from_directory(FRONTEND_DIR, "index.html")
@@ -229,37 +300,35 @@ def serve_index():
 
 @app.get("/api/dashboard")
 def get_dashboard():
-    with closing(get_connection()) as connection:
-        lost_items = [
-            serialize_lost_item(row)
-            for row in connection.execute(
-                "SELECT * FROM lost_items ORDER BY created_at DESC"
-            ).fetchall()
-        ]
-        found_items = [
-            serialize_found_item_public(connection, row)
-            for row in connection.execute(
-                "SELECT * FROM found_items ORDER BY created_at DESC"
-            ).fetchall()
-        ]
-        notifications = [
-            dict(row)
-            for row in connection.execute(
-                "SELECT * FROM notifications ORDER BY created_at DESC LIMIT 20"
-            ).fetchall()
-        ]
+    return jsonify(get_dashboard_payload())
 
-    return jsonify(
-        {
-            "lost_items": lost_items,
-            "found_items": found_items,
-            "notifications": notifications,
-            "counts": {
-                "lost": len(lost_items),
-                "found": len(found_items),
-                "notifications": len(notifications),
-            },
-        }
+
+@app.get("/api/health")
+def health_check():
+    return jsonify({"status": "ok"})
+
+
+@app.get("/api/events")
+def stream_dashboard_events():
+    def generate_events():
+        last_payload = None
+        while True:
+            payload = get_dashboard_payload()
+            payload_json = json.dumps(payload)
+            if payload_json != last_payload:
+                last_payload = payload_json
+                yield f"event: dashboard\ndata: {payload_json}\n\n"
+            else:
+                yield ": heartbeat\n\n"
+            time.sleep(2)
+
+    return Response(
+        stream_with_context(generate_events()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
@@ -462,7 +531,13 @@ def submit_claim(found_item_id: int):
         )
         connection.commit()
 
-        return jsonify({"message": "Claim submitted successfully. The finder can now review it."}), 201
+        return jsonify(
+            {
+                "message": "Claim submitted successfully. The finder can now review it.",
+                "claim_id": claim_id,
+                "claim_status": "Pending Review",
+            }
+        ), 201
 
 
 @app.post("/api/found-items/<int:found_item_id>/finder-access")
@@ -481,6 +556,101 @@ def get_finder_vault(found_item_id: int):
             return jsonify({"error": "Access key is invalid for this item."}), 403
 
         return jsonify({"item": serialize_found_item_private(connection, row)})
+
+
+@app.post("/api/found-items/<int:found_item_id>/claims/<int:claim_id>/decision")
+def decide_claim(found_item_id: int, claim_id: int):
+    data = parse_json()
+    access_key = str(data.get("access_key", "")).strip()
+    decision = str(data.get("decision", "")).strip().lower()
+    allowed_decisions = {"accept", "reject"}
+
+    if not access_key:
+        return jsonify({"error": "Finder access key is required."}), 400
+
+    if decision not in allowed_decisions:
+        return jsonify({"error": "Decision must be accept or reject."}), 400
+
+    with closing(get_connection()) as connection:
+        item = connection.execute(
+            "SELECT * FROM found_items WHERE id = ? AND access_key = ?",
+            (found_item_id, access_key),
+        ).fetchone()
+        if item is None:
+            return jsonify({"error": "Access key is invalid for this item."}), 403
+
+        claim = connection.execute(
+            """
+            SELECT *
+            FROM claims
+            WHERE id = ? AND found_item_id = ?
+            """,
+            (claim_id, found_item_id),
+        ).fetchone()
+        if claim is None:
+            return jsonify({"error": "Claim not found for this item."}), 404
+
+        if claim["status"] == "Accepted" and decision == "reject":
+            return jsonify({"error": "An accepted owner claim cannot be rejected later."}), 409
+
+        if decision == "accept":
+            accepted_claim = connection.execute(
+                """
+                SELECT id
+                FROM claims
+                WHERE found_item_id = ? AND status = 'Accepted' AND id != ?
+                """,
+                (found_item_id, claim_id),
+            ).fetchone()
+            if accepted_claim is not None:
+                return jsonify({"error": "Another claimant is already verified as the owner."}), 409
+
+            connection.execute(
+                "UPDATE claims SET status = 'Rejected' WHERE found_item_id = ? AND id != ?",
+                (found_item_id, claim_id),
+            )
+            connection.execute(
+                "UPDATE claims SET status = 'Accepted' WHERE id = ?",
+                (claim_id,),
+            )
+            connection.execute(
+                "UPDATE found_items SET status = 'Matched With Owner' WHERE id = ?",
+                (found_item_id,),
+            )
+            add_notification(
+                connection,
+                "Owner verified",
+                f"{claim['claimant_name']} was approved by {item['finder_name']} as the owner of {item['item_name']}.",
+                "claim",
+            )
+        else:
+            connection.execute(
+                "UPDATE claims SET status = 'Rejected' WHERE id = ?",
+                (claim_id,),
+            )
+            add_notification(
+                connection,
+                "Claim rejected",
+                f"{item['finder_name']} rejected a claim for {item['item_name']}.",
+                "claim",
+            )
+
+        connection.commit()
+
+        updated_item = connection.execute(
+            "SELECT * FROM found_items WHERE id = ?",
+            (found_item_id,),
+        ).fetchone()
+        updated_claim = connection.execute(
+            "SELECT * FROM claims WHERE id = ?",
+            (claim_id,),
+        ).fetchone()
+        return jsonify(
+            {
+                "item": serialize_found_item_private(connection, updated_item),
+                "claim": serialize_claim_status(connection, updated_claim),
+            }
+        )
 
 
 @app.post("/api/found-items/<int:found_item_id>/status")
@@ -520,6 +690,33 @@ def update_found_status(found_item_id: int):
         return jsonify({"item": serialize_found_item_private(connection, updated_row)})
 
 
+@app.post("/api/claims/status")
+def get_claim_status():
+    data = parse_json()
+    try:
+        claim_id = int(data.get("claim_id", 0))
+    except (TypeError, ValueError):
+        claim_id = 0
+
+    claimant_contact = str(data.get("claimant_contact", "")).strip()
+    if claim_id <= 0 or not claimant_contact:
+        return jsonify({"error": "Claim ID and claimant contact are required."}), 400
+
+    with closing(get_connection()) as connection:
+        claim = connection.execute(
+            """
+            SELECT *
+            FROM claims
+            WHERE id = ? AND claimant_contact = ?
+            """,
+            (claim_id, claimant_contact),
+        ).fetchone()
+        if claim is None:
+            return jsonify({"error": "No claim matched those details."}), 404
+
+        return jsonify({"claim": serialize_claim_status(connection, claim)})
+
+
 @app.get("/api/notifications")
 def list_notifications():
     with closing(get_connection()) as connection:
@@ -555,4 +752,16 @@ init_db()
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "5000"))
+    debug = os.getenv("FLASK_DEBUG", "0") == "1"
+
+    if debug:
+        app.run(host=host, port=port, debug=True)
+    else:
+        try:
+            from waitress import serve
+
+            serve(app, host=host, port=port)
+        except ImportError:
+            app.run(host=host, port=port, debug=False)
