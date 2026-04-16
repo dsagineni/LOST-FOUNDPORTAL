@@ -132,14 +132,6 @@ button {
     line-height: 1.6;
 }
 
-.notification-rail {
-    position: fixed;
-    top: 120px;
-    right: 12px;
-    width: 320px;
-    z-index: 1200;
-}
-
 .primary-button,
 .secondary-button,
 .ghost-button,
@@ -192,24 +184,13 @@ button:hover,
     font-size: 0.8rem;
 }
 
-.notification-panel {
-    position: relative;
-    width: 100%;
+.notification-section {
+    margin-top: 28px;
     border-radius: 24px;
-    padding: 18px;
-    min-height: 220px;
-    max-height: none;
-    overflow: visible;
-    z-index: 1200;
-    cursor: default;
+    padding: 26px;
 }
 
-.notification-drag-handle {
-    cursor: move;
-    user-select: none;
-}
-
-.notification-panel h3 {
+.notification-section h3 {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -239,7 +220,8 @@ button:hover,
 }
 
 #notificationList {
-    max-height: 70vh;
+    margin-top: 18px;
+    max-height: 360px;
     overflow-y: auto;
     padding-right: 6px;
 }
@@ -555,15 +537,6 @@ small {
         grid-template-columns: 1fr;
     }
 
-    .notification-rail {
-        position: static;
-        width: min(100% - 32px, 1180px);
-        margin: 18px auto 0;
-    }
-
-    .notification-panel {
-        width: 100%;
-    }
 }
 
 @media (max-width: 640px) {
