@@ -2,10 +2,9 @@ services:
   - type: web
     name: lost-found-portal
     runtime: python
-    rootDir: LOST&FOUNDPORTAL
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: python backend/app.py
+    buildCommand: cd "LOST&FOUNDPORTAL" && pip install -r requirements.txt
+    startCommand: cd "LOST&FOUNDPORTAL" && python backend/app.py
     envVars:
       - key: HOST
         value: 0.0.0.0

@@ -108,10 +108,11 @@ For persistent public hosting, configure a persistent disk or database and point
 reports may disappear when the host restarts.
 
 For Render, this repo includes `render.yaml`. Choose **New Blueprint**, connect
-this GitHub repository, and Render will use the included build command, start
-command, and environment variables. The included blueprint uses Render's free
-plan with `/tmp/portal.db`, so the site can deploy without payment. Upgrade to
-persistent storage later if reports must survive every host restart.
+this GitHub repository, and set the Blueprint path to `LOST&FOUNDPORTAL/render.yaml`.
+Render will use the included build command, start command, and environment
+variables. The included blueprint uses Render's free plan with `/tmp/portal.db`,
+so the site can deploy without payment. Upgrade to persistent storage later if
+reports must survive every host restart.
 
 ### Real-Time Flow
 
