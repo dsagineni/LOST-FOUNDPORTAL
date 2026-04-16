@@ -12,3 +12,5 @@ services:
         value: "0"
       - key: PORTAL_DATABASE_PATH
         value: /tmp/portal.db
+      - key: DATABASE_URL
+        sync: false

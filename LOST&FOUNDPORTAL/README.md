@@ -66,6 +66,7 @@ The backend supports deployment-friendly runtime configuration:
 
 - `HOST` defaults to `0.0.0.0`
 - `PORT` defaults to `5000`
+- `DATABASE_URL` enables a hosted PostgreSQL database for persistent campus-wide data
 - `PORTAL_DATABASE_PATH` lets you move the SQLite database outside the project if needed
 - `FLASK_DEBUG=1` enables the Flask dev server
 
@@ -113,6 +114,12 @@ Render will use the included build command, start command, and environment
 variables. The included blueprint uses Render's free plan with `/tmp/portal.db`,
 so the site can deploy without payment. Upgrade to persistent storage later if
 reports must survive every host restart.
+
+For permanent data retention, create a hosted PostgreSQL database and set
+`DATABASE_URL` in Render to its connection string. When `DATABASE_URL` is present,
+the app stores lost items, found items, claims, answers, and notifications in
+PostgreSQL. Without it, the deployed free service falls back to temporary SQLite,
+which can reset when the host restarts.
 
 ### Real-Time Flow
 

@@ -8,6 +8,7 @@ import time
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context
 
@@ -15,6 +16,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory, stream
 BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
 DATABASE_PATH = Path(os.getenv("PORTAL_DATABASE_PATH", Path(__file__).resolve().parent / "portal.db"))
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 
 app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path="")
 
@@ -23,7 +25,67 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def get_connection() -> sqlite3.Connection:
+class PostgresCursor:
+    def __init__(self, cursor: Any, lastrowid: int | None = None):
+        self.cursor = cursor
+        self.lastrowid = lastrowid
+
+    def fetchone(self) -> dict | None:
+        return self.cursor.fetchone()
+
+    def fetchall(self) -> list[dict]:
+        return self.cursor.fetchall()
+
+
+class PostgresConnection:
+    def __init__(self, database_url: str):
+        try:
+            import psycopg
+            from psycopg.rows import dict_row
+        except ImportError as exc:
+            raise RuntimeError(
+                "DATABASE_URL is set, but psycopg is not installed. Run pip install -r requirements.txt."
+            ) from exc
+
+        if database_url.startswith("postgres://"):
+            database_url = "postgresql://" + database_url.removeprefix("postgres://")
+
+        self.connection = psycopg.connect(database_url, row_factory=dict_row)
+
+    def execute(self, query: str, params: tuple = ()) -> PostgresCursor:
+        query = query.replace("?", "%s")
+        returning_id = self._needs_returning_id(query)
+        if returning_id:
+            query = f"{query.rstrip()} RETURNING id"
+
+        cursor = self.connection.execute(query, params)
+        lastrowid = None
+        if returning_id:
+            row = cursor.fetchone()
+            lastrowid = row["id"] if row else None
+
+        return PostgresCursor(cursor, lastrowid)
+
+    def commit(self) -> None:
+        self.connection.commit()
+
+    def close(self) -> None:
+        self.connection.close()
+
+    @staticmethod
+    def _needs_returning_id(query: str) -> bool:
+        normalized = " ".join(query.lower().split())
+        return (
+            normalized.startswith("insert into lost_items")
+            or normalized.startswith("insert into found_items")
+            or normalized.startswith("insert into claims")
+        ) and " returning " not in normalized
+
+
+def get_connection() -> sqlite3.Connection | PostgresConnection:
+    if DATABASE_URL:
+        return PostgresConnection(DATABASE_URL)
+
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DATABASE_PATH, timeout=5)
     connection.row_factory = sqlite3.Row
@@ -32,75 +94,142 @@ def get_connection() -> sqlite3.Connection:
     return connection
 
 
+SQLITE_SCHEMA = """
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS lost_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    description TEXT NOT NULL,
+    location TEXT NOT NULL,
+    owner_name TEXT NOT NULL,
+    contact_info TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Open',
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS found_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    description TEXT NOT NULL,
+    location TEXT NOT NULL,
+    finder_name TEXT NOT NULL,
+    finder_contact TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Awaiting Verification',
+    created_at TEXT NOT NULL,
+    access_key TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS verification_questions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    found_item_id INTEGER NOT NULL,
+    question_text TEXT NOT NULL,
+    answer_text TEXT NOT NULL,
+    FOREIGN KEY (found_item_id) REFERENCES found_items(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS claims (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    found_item_id INTEGER NOT NULL,
+    claimant_name TEXT NOT NULL,
+    claimant_contact TEXT NOT NULL,
+    claimant_message TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Pending Review',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (found_item_id) REFERENCES found_items(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS claim_answers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    claim_id INTEGER NOT NULL,
+    question_id INTEGER NOT NULL,
+    answer_text TEXT NOT NULL,
+    FOREIGN KEY (claim_id) REFERENCES claims(id) ON DELETE CASCADE,
+    FOREIGN KEY (question_id) REFERENCES verification_questions(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    type TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+"""
+
+
+POSTGRES_SCHEMA = """
+CREATE TABLE IF NOT EXISTS lost_items (
+    id SERIAL PRIMARY KEY,
+    item_name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    description TEXT NOT NULL,
+    location TEXT NOT NULL,
+    owner_name TEXT NOT NULL,
+    contact_info TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Open',
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS found_items (
+    id SERIAL PRIMARY KEY,
+    item_name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    description TEXT NOT NULL,
+    location TEXT NOT NULL,
+    finder_name TEXT NOT NULL,
+    finder_contact TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Awaiting Verification',
+    created_at TEXT NOT NULL,
+    access_key TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS verification_questions (
+    id SERIAL PRIMARY KEY,
+    found_item_id INTEGER NOT NULL REFERENCES found_items(id) ON DELETE CASCADE,
+    question_text TEXT NOT NULL,
+    answer_text TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS claims (
+    id SERIAL PRIMARY KEY,
+    found_item_id INTEGER NOT NULL REFERENCES found_items(id) ON DELETE CASCADE,
+    claimant_name TEXT NOT NULL,
+    claimant_contact TEXT NOT NULL,
+    claimant_message TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Pending Review',
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS claim_answers (
+    id SERIAL PRIMARY KEY,
+    claim_id INTEGER NOT NULL REFERENCES claims(id) ON DELETE CASCADE,
+    question_id INTEGER NOT NULL REFERENCES verification_questions(id) ON DELETE CASCADE,
+    answer_text TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    type TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+"""
+
+
 def init_db() -> None:
+    schema = POSTGRES_SCHEMA if DATABASE_URL else SQLITE_SCHEMA
     with closing(get_connection()) as connection:
-        cursor = connection.cursor()
-        cursor.executescript(
-            """
-            PRAGMA foreign_keys = ON;
-
-            CREATE TABLE IF NOT EXISTS lost_items (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                item_name TEXT NOT NULL,
-                category TEXT NOT NULL,
-                description TEXT NOT NULL,
-                location TEXT NOT NULL,
-                owner_name TEXT NOT NULL,
-                contact_info TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'Open',
-                created_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS found_items (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                item_name TEXT NOT NULL,
-                category TEXT NOT NULL,
-                description TEXT NOT NULL,
-                location TEXT NOT NULL,
-                finder_name TEXT NOT NULL,
-                finder_contact TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'Awaiting Verification',
-                created_at TEXT NOT NULL,
-                access_key TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS verification_questions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                found_item_id INTEGER NOT NULL,
-                question_text TEXT NOT NULL,
-                answer_text TEXT NOT NULL,
-                FOREIGN KEY (found_item_id) REFERENCES found_items(id) ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS claims (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                found_item_id INTEGER NOT NULL,
-                claimant_name TEXT NOT NULL,
-                claimant_contact TEXT NOT NULL,
-                claimant_message TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'Pending Review',
-                created_at TEXT NOT NULL,
-                FOREIGN KEY (found_item_id) REFERENCES found_items(id) ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS claim_answers (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                claim_id INTEGER NOT NULL,
-                question_id INTEGER NOT NULL,
-                answer_text TEXT NOT NULL,
-                FOREIGN KEY (claim_id) REFERENCES claims(id) ON DELETE CASCADE,
-                FOREIGN KEY (question_id) REFERENCES verification_questions(id) ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS notifications (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                message TEXT NOT NULL,
-                type TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            );
-            """
-        )
+        if DATABASE_URL:
+            for statement in schema.split(";"):
+                statement = statement.strip()
+                if statement:
+                    connection.execute(statement)
+        else:
+            connection.executescript(schema)
         connection.commit()
 
 
@@ -733,7 +862,7 @@ def list_notifications():
 def export_requirements():
     requirements = {
         "languages": ["HTML", "CSS", "Python"],
-        "database": "MySQL-ready design with SQLite demo persistence",
+        "database": "PostgreSQL for hosted persistence, SQLite for local fallback",
         "tools": ["Visual Studio Code", "Browser"],
         "hardware": {
             "ram": "2 GB RAM",
