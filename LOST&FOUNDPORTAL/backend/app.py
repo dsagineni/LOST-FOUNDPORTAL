@@ -310,7 +310,6 @@ def serialize_found_item_public(connection: sqlite3.Connection, row: sqlite3.Row
         "id": row["id"],
         "item_name": row["item_name"],
         "category": row["category"],
-        "description": row["description"],
         "location": row["location"],
         "finder_name": row["finder_name"],
         "status": row["status"],
@@ -512,7 +511,6 @@ def create_found_item():
     required_fields = [
         "item_name",
         "category",
-        "description",
         "location",
         "finder_name",
         "finder_contact",
@@ -551,7 +549,7 @@ def create_found_item():
             (
                 data["item_name"].strip(),
                 data["category"].strip(),
-                data["description"].strip(),
+                "Private finder summary",
                 data["location"].strip(),
                 data["finder_name"].strip(),
                 data["finder_contact"].strip(),

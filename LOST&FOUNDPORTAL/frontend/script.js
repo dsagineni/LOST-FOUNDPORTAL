@@ -120,7 +120,6 @@ function renderFoundItems() {
                         </div>
                         <span class="status-chip">${escapeHtml(item.status)}</span>
                     </div>
-                    <p>${escapeHtml(item.description)}</p>
                     <div class="question-preview">
                         <h5>Verification Questions</h5>
                         ${item.questions
