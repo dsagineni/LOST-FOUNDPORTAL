@@ -254,7 +254,7 @@ def get_dashboard_payload() -> dict:
         found_items = [
             serialize_found_item_public(connection, row)
             for row in connection.execute(
-                "SELECT * FROM found_items ORDER BY created_at DESC"
+                "SELECT * FROM found_items WHERE status != 'Claimed' ORDER BY created_at DESC"
             ).fetchall()
         ]
         notifications = [
@@ -401,7 +401,7 @@ def serialize_claim_status(connection: sqlite3.Connection, claim_row: sqlite3.Ro
     is_approved = claim_row["status"] == "Accepted"
     positive_message = None
     if is_approved:
-        positive_message = "You're the real owner! The finder's contact will be displayed shortly."
+        positive_message = "You're the verified owner. The report has been closed and removed from the portal."
 
     return {
         "claim_id": claim_row["id"],
@@ -682,6 +682,8 @@ def get_finder_vault(found_item_id: int):
         ).fetchone()
         if row is None:
             return jsonify({"error": "Access key is invalid for this item."}), 403
+        if row["status"] == "Claimed":
+            return jsonify({"error": "This found report has already been closed and removed from the portal."}), 410
 
         return jsonify({"item": serialize_found_item_private(connection, row)})
 
@@ -742,7 +744,7 @@ def decide_claim(found_item_id: int, claim_id: int):
                 (claim_id,),
             )
             connection.execute(
-                "UPDATE found_items SET status = 'Matched With Owner' WHERE id = ?",
+                "UPDATE found_items SET status = 'Claimed' WHERE id = ?",
                 (found_item_id,),
             )
             add_notification(
@@ -775,7 +777,7 @@ def decide_claim(found_item_id: int, claim_id: int):
         ).fetchone()
         return jsonify(
             {
-                "item": serialize_found_item_private(connection, updated_item),
+                "item": serialize_found_item_private(connection, updated_item) if updated_item and updated_item["status"] != "Claimed" else None,
                 "claim": serialize_claim_status(connection, updated_claim),
             }
         )

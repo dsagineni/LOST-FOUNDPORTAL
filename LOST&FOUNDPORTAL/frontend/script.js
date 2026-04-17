@@ -384,6 +384,10 @@ async function refreshFinderVaultSilently() {
         state.finderVault = data.item;
         renderFinderVault();
     } catch (error) {
+        if (String(error.message).includes("removed from the portal")) {
+            state.finderVault = null;
+            renderFinderVault();
+        }
         console.error(error);
     }
 }
@@ -535,6 +539,12 @@ async function reviewClaimDecision(event) {
     });
 
     state.finderVault = data.item;
+    if (decision === "accept") {
+        state.finderVault = null;
+        renderFinderVault();
+        switchTab("found");
+    }
+    state.latestClaimStatus = data.claim;
     await refreshDashboard();
 }
 
