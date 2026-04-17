@@ -11,7 +11,7 @@ This project is a working lost-and-found portal built with:
 
 - Lost tab to report and track lost items
 - Found tab to report found items
-- Finder-only verification answer vault
+- Finder-only claim review vault
 - Public claimant flow for answering verification questions
 - Finder accept/reject review controls for each claim
 - Claim-status lookup that reveals finder contact only after approval
@@ -44,7 +44,7 @@ When a finder submits a found item, the portal generates:
 
 Only the finder who has both values can open the Finder Vault and see:
 
-- the correct answers to verification questions
+- the verification questions for that item
 - all claimant-submitted answers
 - accept or reject every claim
 - item status controls

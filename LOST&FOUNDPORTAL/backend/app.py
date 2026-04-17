@@ -322,15 +322,14 @@ def serialize_found_item_public(connection: sqlite3.Connection, row: sqlite3.Row
 def serialize_found_item_private(connection: sqlite3.Connection, row: sqlite3.Row) -> dict:
     item = serialize_found_item_public(connection, row)
     item["finder_contact"] = row["finder_contact"]
-    item["verification_bank"] = [
+    item["verification_questions"] = [
         {
             "id": question["id"],
             "question_text": question["question_text"],
-            "answer_text": question["answer_text"],
         }
         for question in connection.execute(
             """
-            SELECT id, question_text, answer_text
+            SELECT id, question_text
             FROM verification_questions
             WHERE found_item_id = ?
             ORDER BY id
@@ -424,6 +423,11 @@ def serialize_claim_status(connection: sqlite3.Connection, claim_row: sqlite3.Ro
 @app.route("/")
 def serve_index():
     return send_from_directory(FRONTEND_DIR, "index.html")
+
+
+@app.get("/health")
+def health():
+    return jsonify({"status": "ok", "database": str(DATABASE_PATH)})
 
 
 @app.get("/api/dashboard")
@@ -527,14 +531,11 @@ def create_found_item():
         if not isinstance(entry, dict):
             continue
         question_text = str(entry.get("question_text", "")).strip()
-        answer_text = str(entry.get("answer_text", "")).strip()
-        if question_text and answer_text:
-            clean_questions.append(
-                {"question_text": question_text, "answer_text": answer_text}
-            )
+        if question_text:
+            clean_questions.append({"question_text": question_text})
 
     if len(clean_questions) < 3:
-        return jsonify({"error": "Each verification question needs a matching answer."}), 400
+        return jsonify({"error": "Each verification question must include text."}), 400
 
     access_key = secrets.token_urlsafe(9)
 
@@ -565,7 +566,7 @@ def create_found_item():
                 INSERT INTO verification_questions (found_item_id, question_text, answer_text)
                 VALUES (?, ?, ?)
                 """,
-                (found_item_id, question["question_text"], question["answer_text"]),
+                (found_item_id, question["question_text"], ""),
             )
 
         add_notification(

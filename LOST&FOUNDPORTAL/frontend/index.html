@@ -17,7 +17,7 @@
         <div>
             <p class="eyebrow">Smart Campus Recovery</p>
             <h1>Lost &amp; Found Portal</h1>
-            <p class="subtext">Track lost items, publish found reports, and verify ownership through finder-only answer vaults.</p>
+            <p class="subtext">Track lost items, publish found reports, and verify ownership through finder-only claim review.</p>
         </div>
     </header>
 
@@ -116,7 +116,7 @@
                                 </div>
                                 <button type="button" class="ghost-button" id="addQuestionButton">Add Question</button>
                             </div>
-                            <p class="helper-text">Correct answers are stored privately and shown only inside the finder vault after entering the generated access key.</p>
+                            <p class="helper-text">Add the questions a real owner should be able to answer. Claimants answer these later, and the finder reviews the responses in the vault.</p>
                             <div id="questionList" class="question-list"></div>
                         </div>
                         <button type="submit" class="primary-button">Submit Found Report</button>
@@ -179,7 +179,7 @@
                             Finder Access Key
                             <input type="text" name="access_key" required>
                         </label>
-                        <button type="submit" class="primary-button">Unlock Answers</button>
+                        <button type="submit" class="primary-button">Open Review Panel</button>
                     </form>
                     <p class="helper-text">Use the private access key generated when the found item was created.</p>
                 </article>
@@ -188,11 +188,11 @@
                     <div class="panel-head">
                         <div>
                             <p class="eyebrow">Finder-Only View</p>
-                            <h3>Verification Answer Vault</h3>
+                            <h3>Claim Review Vault</h3>
                         </div>
                     </div>
                     <div id="finderVaultContent" class="empty-state">
-                        Unlock a found item to view its stored verification answers and submitted claimant responses.
+                        Open a found item to review its verification questions and submitted claimant responses.
                     </div>
                 </article>
             </div>
@@ -202,7 +202,7 @@
             <div class="hero-copy">
                 <p class="eyebrow">Verification-first workflow</p>
                 <h2>Recover belongings with privacy, clarity, and trusted verification.</h2>
-                <p class="subtext">Lost reports, found reports, private finder answers, and live updates all work together so items can be returned more confidently.</p>
+                <p class="subtext">Lost reports, found reports, claimant responses, and finder review all work together so items can be returned more confidently.</p>
             </div>
             <div class="hero-metrics">
                 <article class="metric glass-soft">
@@ -236,10 +236,6 @@
             <label>
                 Question
                 <input type="text" class="question-input" required>
-            </label>
-            <label>
-                Correct Answer
-                <input type="text" class="answer-input" required>
             </label>
             <button type="button" class="ghost-button remove-question">Remove</button>
         </div>

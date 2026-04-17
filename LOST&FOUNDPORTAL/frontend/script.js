@@ -43,11 +43,10 @@ async function apiRequest(url, options = {}) {
     return data;
 }
 
-function createQuestionRow(question = "", answer = "") {
+function createQuestionRow(question = "") {
     const fragment = questionTemplate.content.cloneNode(true);
     const row = fragment.querySelector(".question-row");
     row.querySelector(".question-input").value = question;
-    row.querySelector(".answer-input").value = answer;
     row.querySelector(".remove-question").addEventListener("click", () => {
         if (questionList.children.length > 3) {
             row.remove();
@@ -204,7 +203,7 @@ function renderFinderVault() {
     const target = document.getElementById("finderVaultContent");
     if (!state.finderVault) {
         target.className = "empty-state";
-        target.textContent = "Unlock a found item to view its stored verification answers and submitted claimant responses.";
+        target.textContent = "Open a found item to review its verification questions and submitted claimant responses.";
         return;
     }
 
@@ -221,13 +220,13 @@ function renderFinderVault() {
         </div>
 
         <div class="vault-section">
-            <h5>Correct Verification Answers</h5>
-            ${item.verification_bank
+            <h5>Verification Questions</h5>
+            ${item.verification_questions
                 .map(
                     (entry) => `
                         <div class="vault-row">
                             <strong>${escapeHtml(entry.question_text)}</strong>
-                            <span>${escapeHtml(entry.answer_text)}</span>
+                            <span>Waiting for claimant response</span>
                         </div>
                     `
                 )
@@ -427,7 +426,6 @@ async function submitFoundItem(event) {
     const payload = Object.fromEntries(new FormData(form).entries());
     const questions = Array.from(questionList.querySelectorAll(".question-row")).map((row) => ({
         question_text: row.querySelector(".question-input").value.trim(),
-        answer_text: row.querySelector(".answer-input").value.trim(),
     }));
 
     const data = await apiRequest("/api/found-items", {
@@ -578,9 +576,9 @@ async function refreshClaimStatusSilently() {
 }
 
 function initializeQuestions() {
-    createQuestionRow("What color is the item?", "");
-    createQuestionRow("What unique mark or sticker does it have?", "");
-    createQuestionRow("Where do you usually keep or use it?", "");
+    createQuestionRow("What color is the item?");
+    createQuestionRow("What unique mark or sticker does it have?");
+    createQuestionRow("Where do you usually keep or use it?");
 }
 
 tabs.forEach((tab) => {
