@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lost &amp; Found Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <header class="shell glass">
+        <div>
+            <p class="eyebrow">Smart Campus Recovery</p>
+            <h1>Lost &amp; Found Portal</h1>
+            <p class="subtext">Track lost items, publish found reports, and verify ownership through finder-only claim review.</p>
+        </div>
+    </header>
+
+    <main class="shell">
+        <section class="tabs">
+            <button class="tab active" data-tab="lost">Lost Tab</button>
+            <button class="tab" data-tab="found">Found Tab</button>
+            <button class="tab" data-tab="finder">Finder Vault</button>
+        </section>
+
+        <section class="workspace active" id="lostTab">
+            <div class="grid two-column">
+                <article class="glass panel">
+                    <div class="panel-head">
+                        <div>
+                            <p class="eyebrow">Report</p>
+                            <h3>Lost Item Form</h3>
+                        </div>
+                    </div>
+                    <form id="lostForm" class="form-grid">
+                        <label>
+                            Item Name
+                            <input type="text" name="item_name" required>
+                        </label>
+                        <label>
+                            Category
+                            <input type="text" name="category" placeholder="ID Card, Wallet, Phone" required>
+                        </label>
+                        <label>
+                            Last Seen Location
+                            <input type="text" name="location" required>
+                        </label>
+                        <label>
+                            Owner Name
+                            <input type="text" name="owner_name" required>
+                        </label>
+                        <label>
+                            Contact Info
+                            <input type="text" name="contact_info" placeholder="Email or phone number" required>
+                        </label>
+                        <label class="full-span">
+                            Description
+                            <textarea name="description" rows="4" required></textarea>
+                        </label>
+                        <button type="submit" class="primary-button">Submit Lost Report</button>
+                    </form>
+                </article>
+
+                <article class="glass panel">
+                    <div class="panel-head">
+                        <div>
+                            <p class="eyebrow">Tracking Board</p>
+                            <h3>Lost Items</h3>
+                        </div>
+                    </div>
+                    <div id="lostItemsList" class="card-list"></div>
+                </article>
+            </div>
+        </section>
+
+        <section class="workspace" id="foundTab">
+            <div class="grid two-column">
+                <article class="glass panel">
+                    <div class="panel-head">
+                        <div>
+                            <p class="eyebrow">Report</p>
+                            <h3>Found Item Form</h3>
+                        </div>
+                    </div>
+                    <form id="foundForm" class="form-grid">
+                        <label>
+                            Item Name
+                            <input type="text" name="item_name" required>
+                        </label>
+                        <label>
+                            Category
+                            <input type="text" name="category" required>
+                        </label>
+                        <label>
+                            Found Location
+                            <input type="text" name="location" required>
+                        </label>
+                        <label>
+                            Finder Name
+                            <input type="text" name="finder_name" required>
+                        </label>
+                        <label>
+                            Finder Contact
+                            <input type="text" name="finder_contact" placeholder="Email or phone number" required>
+                        </label>
+                        <div class="full-span verification-builder">
+                            <div class="builder-head">
+                                <div>
+                                    <p class="eyebrow">Special Feature</p>
+                                    <h4>Verification Questions</h4>
+                                </div>
+                                <button type="button" class="ghost-button" id="addQuestionButton">Add Question</button>
+                            </div>
+                            <p class="helper-text">Add the questions a real owner should be able to answer. Claimants answer these later, and the finder reviews the responses in the vault.</p>
+                            <div id="questionList" class="question-list"></div>
+                        </div>
+                        <button type="submit" class="primary-button">Submit Found Report</button>
+                    </form>
+                    <div id="finderAccessResult" class="result-banner hidden"></div>
+                </article>
+
+                <div class="grid public-found-column">
+                    <article class="glass panel">
+                        <div class="panel-head">
+                            <div>
+                                <p class="eyebrow">Public Feed</p>
+                                <h3>Found Items</h3>
+                            </div>
+                        </div>
+                        <div id="foundItemsList" class="card-list"></div>
+                    </article>
+
+                    <article class="glass panel">
+                        <div class="panel-head">
+                            <div>
+                                <p class="eyebrow">Claimant Access</p>
+                                <h3>Check Claim Status</h3>
+                            </div>
+                        </div>
+                        <form id="claimStatusForm" class="form-grid">
+                            <label>
+                                Claim ID
+                                <input type="number" name="claim_id" min="1" required>
+                            </label>
+                            <label>
+                                Claimant Contact
+                                <input type="text" name="claimant_contact" placeholder="Same email or phone used in claim" required>
+                            </label>
+                            <button type="submit" class="secondary-button">Check Status</button>
+                        </form>
+                        <div id="claimStatusResult" class="empty-state compact">
+                            Enter your claim ID and the same contact you used while submitting the claim.
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="workspace" id="finderTab">
+            <div class="grid finder-grid">
+                <article class="glass panel">
+                    <div class="panel-head">
+                        <div>
+                            <p class="eyebrow">Private Access</p>
+                            <h3>Open Finder Vault</h3>
+                        </div>
+                    </div>
+                    <form id="finderAccessForm" class="form-grid">
+                        <label>
+                            Found Item ID
+                            <input type="number" name="found_item_id" min="1" required>
+                        </label>
+                        <label>
+                            Finder Access Key
+                            <input type="text" name="access_key" required>
+                        </label>
+                        <button type="submit" class="primary-button">Open Review Panel</button>
+                    </form>
+                    <p class="helper-text">Use the private access key generated when the found item was created.</p>
+                </article>
+
+                <article class="glass panel" id="finderVaultPanel">
+                    <div class="panel-head">
+                        <div>
+                            <p class="eyebrow">Finder-Only View</p>
+                            <h3>Claim Review Vault</h3>
+                        </div>
+                    </div>
+                    <div id="finderVaultContent" class="empty-state">
+                        Open a found item to review its verification questions and submitted claimant responses.
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="hero glass">
+            <div class="hero-copy">
+                <p class="eyebrow">Verification-first workflow</p>
+                <h2>Recover belongings with privacy, clarity, and trusted verification.</h2>
+                <p class="subtext">Lost reports, found reports, claimant responses, and finder review all work together so items can be returned more confidently.</p>
+            </div>
+            <div class="hero-metrics">
+                <article class="metric glass-soft">
+                    <span id="lostCount">0</span>
+                    <p>Lost Reports</p>
+                </article>
+                <article class="metric glass-soft">
+                    <span id="foundCount">0</span>
+                    <p>Found Reports</p>
+                </article>
+                <article class="metric glass-soft">
+                    <span id="updateCount">0</span>
+                    <p>Portal Updates</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="notification-section glass" id="notificationPanel">
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Live Activity</p>
+                    <h3>Notifications <span class="badge" id="notificationBadge">0</span></h3>
+                </div>
+            </div>
+            <div id="notificationList" class="panel-body"></div>
+        </section>
+    </main>
+
+    <template id="questionRowTemplate">
+        <div class="question-row glass-soft">
+            <label>
+                Question
+                <input type="text" class="question-input" required>
+            </label>
+            <button type="button" class="ghost-button remove-question">Remove</button>
+        </div>
+    </template>
+
+    <script src="script.js"></script>
+</body>
+</html>

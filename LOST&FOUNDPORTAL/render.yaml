@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: lost-found-portal
+    runtime: python
+    plan: free
+    buildCommand: cd "LOST&FOUNDPORTAL" && pip install -r requirements.txt
+    startCommand: cd "LOST&FOUNDPORTAL" && python backend/app.py
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: FLASK_DEBUG
+        value: "0"
+      - key: PORTAL_DATABASE_PATH
+        value: /tmp/portal.db
+      - key: DATABASE_URL
+        sync: false
